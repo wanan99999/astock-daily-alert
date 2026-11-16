@@ -2,7 +2,7 @@
 
 收盘后自动抓取全市场数据，计算两类信号并发布到 GitHub Pages（公开网页，所有人可访问）。
 
-**网站**：https://tranchiclever417693-lab.github.io/astock-daily-alert/
+**网站**：https://wanan99999.github.io/astock-daily-alert/
 
 ## 两类信号
 
