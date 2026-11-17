@@ -1,4 +1,5 @@
-pandas>=2.0
+pandas>=2.0,<3.1
 numpy>=1.24
-akshare>=1.18
+# akshare 1.20.44 renamed stock_zh_index_daily etc.; pin to the locally verified version
+akshare==1.18.64
 efinance>=0.5
