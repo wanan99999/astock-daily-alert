@@ -16,7 +16,12 @@ def render():
     with open(os.path.join(DATA, "signals.json"), encoding="utf-8") as f:
         sig = json.load(f)
     payload = json.dumps(sig, ensure_ascii=False)
-    html = TEMPLATE.replace("/*__DATA__*/", payload)
+    try:
+        with open(os.path.join(DATA, "ratio.json"), encoding="utf-8") as f:
+            ratio = f.read()
+    except Exception:
+        ratio = "null"
+    html = TEMPLATE.replace("/*__DATA__*/", payload).replace("/*__RATIO__*/", ratio)
     with open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
     print("index.html written,", len(sig["history"]), "days, latest", sig["latest_date"])
@@ -105,6 +110,26 @@ th:first-child,td:first-child{text-align:left}
 .method ul{margin:8px 0;padding-left:20px} .method li{margin:3px 0}
 footer{margin-top:34px;color:#586173;font-size:11.5px;text-align:center;line-height:1.7}
 .pos{color:var(--red)} .neg{color:var(--green)}
+.ratios{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:680px){.ratios{grid-template-columns:1fr}}
+.rt{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px 12px}
+.rt h4{margin:0 0 8px;font-size:13px;color:var(--sub);font-weight:600}
+.rt .big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rt .big b{font-size:26px;font-family:var(--mono)}
+.zone{font-size:12px;padding:2px 9px;border-radius:20px;border:1px solid var(--line);color:var(--sub)}
+.zone.lo{color:var(--green);border-color:#1d4a2e;background:var(--greenbg)}
+.zone.hi{color:var(--amber);border-color:#4a3a12;background:var(--amberbg)}
+.rt .meta{font-size:12px;color:var(--sub);margin-top:4px;line-height:1.7}
+.rt .meta b{color:var(--txt);font-family:var(--mono);font-weight:500}
+.rt svg{width:100%;height:auto;display:block;margin-top:8px}
+.rt svg .ax{fill:#6b7382;font-size:10px;font-family:var(--mono)}
+.rt svg .g{stroke:var(--line);stroke-width:1}
+.rt svg .lo{stroke:var(--green);stroke-dasharray:4 3;stroke-width:1;opacity:.8}
+.rt svg .hi{stroke:var(--amber);stroke-dasharray:4 3;stroke-width:1;opacity:.8}
+.rt svg .ln{fill:none;stroke:var(--blue);stroke-width:1.6}
+.rt svg .cx{stroke:var(--sub);stroke-width:1}
+.rtip{font-size:11.5px;font-family:var(--mono);color:var(--sub);min-height:17px;margin-top:2px}
+.ratio-note{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.7}
 </style>
 </head>
 <body>
@@ -136,6 +161,12 @@ footer{margin-top:34px;color:#586173;font-size:11.5px;text-align:center;line-hei
     </div>
   </div>
 
+  <div class="section" id="ratioSec" hidden>
+    <h3>风格比值 <span class="hint">（只作参考，不参与上面的预警）</span></h3>
+    <div class="ratios" id="ratios"></div>
+    <p class="ratio-note" id="ratioNote"></p>
+  </div>
+
   <div class="section">
     <h3>近200个交易日 <span class="hint">（上下滚动查看）</span></h3>
     <div class="scroll">
@@ -160,6 +191,7 @@ footer{margin-top:34px;color:#586173;font-size:11.5px;text-align:center;line-hei
 
 <script>
 const DATA = /*__DATA__*/;
+const RATIO = /*__RATIO__*/;
 const $ = s => document.querySelector(s);
 
 function pct(x){return (x==null?'-':x.toFixed(1)+'%');}
@@ -214,6 +246,51 @@ $('#idxline').innerHTML = '上证指数 <b>'+ (L.idx_close??'-') +'</b> &nbsp; '
   $('#botBars').innerHTML = bars.map(([lab,v,col])=>`
     <div class="bar-row"><div class="lab"><span>${lab}</span><b>${pct(v)}</b></div>
     <div class="track"><div class="fill" style="width:${Math.min(100,v)}%;background:${col}"></div></div></div>`).join('');
+})();
+
+/* 风格比值（参考） */
+(function(){
+  if(!RATIO||!RATIO.items||!RATIO.items.length) return;
+  $('#ratioSec').hidden=false;
+  const W=420,H=150,L=34,R=8,T=8,B=20;
+  $('#ratios').innerHTML=RATIO.items.map((it,k)=>{
+    const z=it.now<it.lo?['lo','偏低：创业板相对红利便宜']:it.now>it.hi?['hi','偏高：创业板相对红利贵']:['','中间区域'];
+    const d=it.curve.d, v=it.curve.v, lo=Math.min(...v,it.lo), hi=Math.max(...v,it.hi);
+    const p=(hi-lo)*.06, y0=lo-p, y1=hi+p, D0=Date.parse(d[0]), D1=Date.parse(d[d.length-1]);
+    const X=t=>L+(Date.parse(t)-D0)/(D1-D0)*(W-L-R), Y=x=>T+(y1-x)/(y1-y0)*(H-T-B);
+    let g=''; const st=(y1-y0)>0.4?0.1:0.05;
+    for(let q=Math.ceil(y0/st)*st;q<=y1;q+=st) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(q).toFixed(1)}" y2="${Y(q).toFixed(1)}" class="g"/><text x="${L-4}" y="${(Y(q)+3).toFixed(1)}" class="ax" text-anchor="end">${q.toFixed(2)}</text>`;
+    const y0y=new Date(D0).getFullYear(), y1y=new Date(D1).getFullYear(), ys=y1y-y0y>8?4:2;
+    for(let y=y0y+1;y<=y1y;y++) if((y1y-y)%ys===0) g+=`<text x="${X(y+'-01-01').toFixed(1)}" y="${H-5}" class="ax" text-anchor="middle">${y}</text>`;
+    const path=d.map((t,i)=>(i?'L':'M')+X(t).toFixed(1)+','+Y(v[i]).toFixed(1)).join('');
+    const n=v.length-1;
+    return `<div class="rt"><h4>${it.name}</h4>
+      <div class="big"><b>${it.now.toFixed(3)}</b><span class="zone ${z[0]}">${z[1]}</span></div>
+      <div class="meta">${it.a} ${it.a_close} ÷ ${it.b} ${it.b_close}（${it.date}）· 近20日 ${fmtRet(it.chg20==null?null:it.chg20*100)}<br>
+        比 ${it.since.slice(0,4)} 年以来 <b>${(it.pct_all*100).toFixed(0)}%</b> 的日子高 · 比近3年 <b>${(it.pct_3y*100).toFixed(0)}%</b> 的日子高 · 历史区间 ${it.min.toFixed(2)}~${it.max.toFixed(2)}<br>
+        参考线：低于 <b>${it.lo}</b> 偏低，高于 <b>${it.hi}</b> 偏高</div>
+      <svg viewBox="0 0 ${W} ${H}" data-k="${k}">${g}
+        <line x1="${L}" x2="${W-R}" y1="${Y(it.lo).toFixed(1)}" y2="${Y(it.lo).toFixed(1)}" class="lo"/>
+        <line x1="${L}" x2="${W-R}" y1="${Y(it.hi).toFixed(1)}" y2="${Y(it.hi).toFixed(1)}" class="hi"/>
+        <path d="${path}" class="ln"/><circle cx="${X(d[n]).toFixed(1)}" cy="${Y(v[n]).toFixed(1)}" r="3" fill="var(--blue)"/>
+        <line class="cx" x1="-9" x2="-9" y1="${T}" y2="${H-B}"/></svg>
+      <div class="rtip">每周一个点，鼠标移到图上看数值</div></div>`;
+  }).join('');
+  document.querySelectorAll('.rt svg').forEach(svg=>{
+    const it=RATIO.items[+svg.dataset.k], d=it.curve.d, v=it.curve.v, D0=Date.parse(d[0]), D1=Date.parse(d[d.length-1]);
+    const tip=svg.nextElementSibling, cx=svg.querySelector('.cx');
+    svg.addEventListener('pointermove',e=>{
+      const b=svg.getBoundingClientRect(), x=(e.clientX-b.left)/b.width*W, t=D0+(x-L)/(W-L-R)*(D1-D0);
+      let i=0,best=1e18; d.forEach((s,j)=>{const q=Math.abs(Date.parse(s)-t); if(q<best){best=q;i=j;}});
+      const px=L+(Date.parse(d[i])-D0)/(D1-D0)*(W-L-R); cx.setAttribute('x1',px); cx.setAttribute('x2',px);
+      tip.textContent=d[i]+'  比值 '+v[i].toFixed(3);
+    });
+    svg.addEventListener('pointerleave',()=>{cx.setAttribute('x1',-9);cx.setAttribute('x2',-9);tip.textContent='每周一个点，鼠标移到图上看数值';});
+  });
+  $('#ratioNote').innerHTML='怎么看：比值低 = 创业板相对红利跌得多、相对便宜；比值高 = 创业板相对红利涨得多、相对贵。'+
+    '2010 年以来，比值很低时之后半年小盘平均跑赢红利，比值很高时平均跑输，但规律不稳定。'+
+    '2023 年起用它直接切换个股/红利，回测年化只有 23%~32%、回撤 36%~42%，不如原方案，所以<b>只作参考，不作买卖信号</b>。'+
+    '红利指数是价格指数，分红除权会让比值逐年自然抬高，参考线过几年需要重看。更新 '+RATIO.updated+'。';
 })();
 
 /* history table */

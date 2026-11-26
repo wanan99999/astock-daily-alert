@@ -133,6 +133,11 @@ def main():
     hist.to_csv(os.path.join(DATA, "breadth_daily.csv"), index=False, encoding="utf-8-sig")
 
     out = sig_mod.build_signals()
+    try:
+        import ratio as ratio_mod                      # 风格比值（参考）；失败沿用旧数据
+        ratio_mod.update()
+    except Exception as e:  # noqa: BLE001
+        print("风格比值更新失败(不影响主站):", type(e).__name__, e)
     build_site.render()
 
     # --- 子板块（创业板 / 科创板）同步更新 ---
