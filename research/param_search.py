@@ -12,7 +12,6 @@ Priority (lexicographic):
 Only same-day-or-earlier data is used. Denominator = stocks valid that day.
 """
 import os
-import sys
 import json
 import itertools
 import numpy as np

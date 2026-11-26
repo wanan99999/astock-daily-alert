@@ -5,7 +5,6 @@ and emit signals.json (latest state + full history) for the website.
 This is the single evaluator used by both the backtest and the daily update.
 """
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd

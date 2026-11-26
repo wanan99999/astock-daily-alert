@@ -170,9 +170,6 @@ def fetch_index_today():
     return eod_date, eod_close
 
 
-def latest_trading_date_guess():
-    return dt.datetime.now().strftime("%Y-%m-%d")
-
 
 if __name__ == "__main__":
     snap = fetch_snapshot()

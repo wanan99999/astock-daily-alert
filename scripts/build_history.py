@@ -7,7 +7,6 @@ After this runs, daily_update.py only needs a light daily snapshot to extend it.
 import os
 import sys
 import pickle
-import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
